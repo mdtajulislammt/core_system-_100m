@@ -1,0 +1,114 @@
+{
+  "settings": {
+    "index": {
+      "number_of_shards": 5,
+      "number_of_replicas": 1,
+      "refresh_interval": "5s",
+      "codec": "best_compression",
+      "max_result_window": 10000,
+      "analysis": {
+        "tokenizer": {
+          "edge_ngram_tokenizer": {
+            "type": "edge_ngram",
+            "min_gram": 2,
+            "max_gram": 15,
+            "token_chars": ["letter", "digit"]
+          }
+        },
+        "analyzer": {
+          "autocomplete_analyzer": {
+            "type": "custom",
+            "tokenizer": "edge_ngram_tokenizer",
+            "filter": ["lowercase", "asciifolding"]
+          },
+          "autocomplete_search_analyzer": {
+            "type": "custom",
+            "tokenizer": "standard",
+            "filter": ["lowercase", "asciifolding"]
+          },
+          "email_analyzer": {
+            "type": "custom",
+            "tokenizer": "uax_url_email",
+            "filter": ["lowercase"]
+          }
+        },
+        "normalizer": {
+          "case_insensitive_keyword": {
+            "type": "custom",
+            "filter": ["lowercase", "asciifolding"]
+          }
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "id": {
+        "type": "keyword"
+      },
+      "tenant_id": {
+        "type": "keyword"
+      },
+      "order_number": {
+        "type": "keyword",
+        "normalizer": "case_insensitive_keyword"
+      },
+      "customer_id": {
+        "type": "keyword"
+      },
+      "customer_name": {
+        "type": "text",
+        "analyzer": "standard",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          },
+          "autocomplete": {
+            "type": "text",
+            "analyzer": "autocomplete_analyzer",
+            "search_analyzer": "autocomplete_search_analyzer"
+          }
+        }
+      },
+      "customer_email": {
+        "type": "keyword",
+        "normalizer": "case_insensitive_keyword",
+        "fields": {
+          "text": {
+            "type": "text",
+            "analyzer": "email_analyzer"
+          }
+        }
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "total_amount": {
+        "type": "scaled_float",
+        "scaling_factor": 100
+      },
+      "metadata": {
+        "type": "flattened"
+      },
+      "is_deleted": {
+        "type": "boolean"
+      },
+      "version": {
+        "type": "long"
+      },
+      "created_at": {
+        "type": "date",
+        "format": "strict_date_optional_time||epoch_millis"
+      },
+      "updated_at": {
+        "type": "date",
+        "format": "strict_date_optional_time||epoch_millis"
+      }
+    }
+  }
+}

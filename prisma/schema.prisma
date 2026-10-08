@@ -1,0 +1,54 @@
+// ============================================================================
+// PRISMA PRODUCTION SCHEMA (POSTGRESQL 100M RECORD OPTIMIZED)
+// Strict snake_case mapping with @map and @@map
+// Declarative Partitioning Composite Primary Key @@id([id, createdAt])
+// ============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  PENDING    @map("PENDING")
+  PROCESSING @map("PROCESSING")
+  COMPLETED  @map("COMPLETED")
+  CANCELLED  @map("CANCELLED")
+  REFUNDED   @map("REFUNDED")
+
+  @@map("order_status")
+}
+
+model Order {
+  id            String      @default(dbgenerated("gen_random_uuid()")) @map("id") @db.Uuid
+  tenantId      String      @map("tenant_id") @db.Uuid
+  orderNumber   String      @map("order_number") @db.VarChar(64)
+  customerId    String      @map("customer_id") @db.Uuid
+  customerName  String      @map("customer_name") @db.VarChar(255)
+  customerEmail String      @map("customer_email") @db.VarChar(255)
+  status        OrderStatus @default(PENDING) @map("status")
+  currency      String      @default("USD") @map("currency") @db.VarChar(3)
+  totalAmount   Decimal     @map("total_amount") @db.Decimal(12, 2)
+  metadata      Json        @default("{}") @map("metadata") @db.JsonB
+  isDeleted     Boolean     @default(false) @map("is_deleted")
+  deletedAt     DateTime?   @map("deleted_at") @db.Timestamptz(6)
+  version       Int         @default(1) @map("version")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Composite Primary Key: Essential for PostgreSQL declarative partitioned tables
+  @@id([id, createdAt], map: "pk_orders")
+
+  // Optimized Composite Indexes for O(1) Keyset / Cursor Pagination
+  @@index([status, createdAt(sort: Desc), id(sort: Desc)], map: "idx_orders_status_created_id")
+  @@index([customerId, createdAt(sort: Desc), id(sort: Desc)], map: "idx_orders_customer_created_id")
+  @@index([tenantId, orderNumber], map: "idx_orders_tenant_ordernum")
+  @@index([updatedAt], map: "idx_orders_updated_at")
+
+  @@map("orders")
+}

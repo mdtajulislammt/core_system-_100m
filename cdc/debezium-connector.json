@@ -1,0 +1,32 @@
+{
+  "name": "postgres-orders-cdc-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+    "plugin.name": "pgoutput",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "postgres",
+    "database.password": "postgres",
+    "database.dbname": "orders_db",
+    "database.server.name": "dbserver1",
+    "table.include.list": "public.orders",
+    "tombstones.on.delete": "true",
+    "decimal.handling.mode": "double",
+    "time.precision.mode": "connect",
+    "database.history.kafka.bootstrap.servers": "kafka:9092",
+    "database.history.kafka.topic": "schema-changes.orders",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "transforms": "unwrap,reroute",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "transforms.unwrap.delete.handling.mode": "rewrite",
+    "transforms.unwrap.add.fields": "op,table,lsn,source.ts_ms",
+    "transforms.reroute.type": "io.debezium.transforms.ByLogicalTableRouter",
+    "transforms.reroute.topic.regex": ".*\\.orders.*",
+    "transforms.reroute.topic.replacement": "orders.cdc.events"
+  }
+}
