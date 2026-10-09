@@ -16,9 +16,9 @@ interface DebeziumOrderPayload {
   metadata: any;
   is_deleted: boolean;
   version: number;
-  created_at: number | string; // Microseconds epoch or ISO string
+  created_at: number | string;
   updated_at: number | string;
-  __op?: 'c' | 'u' | 'd' | 'r'; // Debezium operation: create, update, delete, read(snapshot)
+  __op?: 'c' | 'u' | 'd' | 'r'; 
 }
 
 @Injectable()
@@ -55,7 +55,6 @@ export class OrderCdcConsumerService implements OnModuleInit, OnModuleDestroy {
         fromBeginning: false,
       });
 
-      // Run batch consumer with manual offset commit for zero-loss ingestion
       await this.consumer.run({
         autoCommit: false,
         eachBatch: this.handleBatch.bind(this),
@@ -71,11 +70,7 @@ export class OrderCdcConsumerService implements OnModuleInit, OnModuleDestroy {
     await this.consumer?.disconnect();
   }
 
-  /**
-   * Batch Consumer Handler:
-   * Processes change events in batches and commits offsets only after
-   * Elasticsearch has acknowledged the writes.
-   */
+
   private async handleBatch({ batch, resolveOffset, heartbeat, commitOffsetsIfNecessary }: EachBatchPayload): Promise<void> {
     for (const message of batch.messages) {
       if (!message.value) continue;
@@ -85,7 +80,6 @@ export class OrderCdcConsumerService implements OnModuleInit, OnModuleDestroy {
         const orderData: DebeziumOrderPayload = rawEvent;
         const op = orderData.__op || rawEvent.op || 'u';
 
-        // Format dates into ISO strings for Elasticsearch
         const createdAtIso = typeof orderData.created_at === 'number'
           ? new Date(orderData.created_at / 1000).toISOString()
           : new Date(orderData.created_at).toISOString();
@@ -95,10 +89,8 @@ export class OrderCdcConsumerService implements OnModuleInit, OnModuleDestroy {
           : new Date(orderData.updated_at).toISOString();
 
         if (op === 'd' || orderData.is_deleted === true) {
-          // Soft-delete or hard-delete synchronization
           await this.searchService.markDeletedFromCDC(orderData.id, orderData.version);
         } else {
-          // Create or Update operation: Idempotent upsert with external versioning
           await this.searchService.upsertFromCDC({
             id: orderData.id,
             tenant_id: orderData.tenant_id,
@@ -116,16 +108,12 @@ export class OrderCdcConsumerService implements OnModuleInit, OnModuleDestroy {
             updated_at: updatedAtIso,
           });
         }
-
-        // Cache Invalidation on CDC event:
-        // Evicts specific order cache and invalidates query caches
         await this.redisService.del(`order:${orderData.id}`);
 
         resolveOffset(message.offset);
         await heartbeat();
       } catch (err) {
         this.logger.error(`Error processing CDC message at offset ${message.offset}`, err);
-        // Do not acknowledge offset; throw to trigger Kafka retry / DLQ routing
         throw err;
       }
     }
