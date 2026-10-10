@@ -26,7 +26,6 @@ export class OrderCdcConsumerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OrderCdcConsumerService.name);
   private kafka: Kafka;
   private consumer: Consumer;
-
   constructor(
     private readonly searchService: SearchService,
     private readonly redisService: RedisService,
